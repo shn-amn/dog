@@ -23,3 +23,5 @@ A simple HTTP server log analyser
     .evalMap(busy => IO(println(if (busy) "\rToo busy." else "\rNormal.")))
 ```
 
+### Assumption: ordered input
+### Problem: sparse input
