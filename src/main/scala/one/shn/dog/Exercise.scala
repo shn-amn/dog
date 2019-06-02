@@ -11,6 +11,7 @@ import one.shn.dog.Streams._
 import one.shn.dog.out.Display
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
+import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object Exercise extends IOApp {
@@ -21,6 +22,7 @@ object Exercise extends IOApp {
   def job(since: Instant, threshold: Int): Stream[IO, Unit] =
     Stream resource blockingExecutionContext flatMap { blockingEC =>
       logsSince(Paths get "/tmp/access.log", since, blockingEC)
+        .through(addHeartbeat(lag = 500 millis))
         .through(groupToStats)
         .evalTap(stats => IO(Display transient stats.message))
         .through(scanForAlerts(10))
