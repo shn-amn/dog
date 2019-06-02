@@ -8,6 +8,7 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.implicits._
 import fs2.Stream
 import one.shn.dog.Streams._
+import one.shn.dog.out.Display
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.language.postfixOps
@@ -21,9 +22,9 @@ object Exercise extends IOApp {
     Stream resource blockingExecutionContext flatMap { blockingEC =>
       logsSince(Paths get "/tmp/access.log", since, blockingEC)
         .through(groupToStats)
-        .evalTap(stats => out.printTransient(stats.message))
+        .evalTap(stats => IO(Display transient stats.message))
         .through(scanForAlerts(10))
-        .evalMap(alert => out.printPermanent(alert.message))
+        .evalMap(alert => IO(Display permanent alert.message))
     }
 
   override def run(args: List[String]): IO[ExitCode] =
