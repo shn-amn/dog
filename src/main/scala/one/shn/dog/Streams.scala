@@ -77,5 +77,10 @@ object Streams {
       case (true, count, timestamp)  => Busy(timestamp, count, threshold)
       case (false, count, timestamp) => Normal(timestamp, count, threshold)
     }
+    .zipWithIndex
+    .mapFilter {
+      case (_: Normal, 0) => None
+      case (alert, _)     => Some(alert)
+    }
 
 }

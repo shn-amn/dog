@@ -10,9 +10,9 @@ import scala.language.postfixOps
 
 class StreamsSpec extends FlatSpec {
 
-  def lg(t: Int) = Log(Instant ofEpochSecond t, "/")
-  def rl(t: Int) = Right(lg(t))
-  def li(t: Int) = Left(Instant ofEpochSecond t)
+  private def lg(t: Int) = Log(Instant ofEpochSecond t, "/")
+  private def rl(t: Int) = Right(lg(t))
+  private def li(t: Int) = Left(Instant ofEpochSecond t)
 
   "Streams.groupToStats" should "properly group a mix of logs and timestamps to 10-second stats" in
     assert(Stream(
@@ -32,19 +32,24 @@ class StreamsSpec extends FlatSpec {
           timestamp = Instant ofEpochSecond 40,
           logs      = Vector())))
 
-  def st(t: Int, n: Int) = Stats(
-    timestamp = Instant ofEpochSecond t,
-    logs      = 1 to n map (_ => lg(t - 1)) toVector)
-  def dozen(i: Int, n: Int) = i * 12 + 1 to i * 12 + 12 map (t => st(t * 10, n * 10)) toList
+  private def st(t: Int, n: Int) = Stats(Instant ofEpochSecond t, 1 to n map (_ => lg(t - 1)) toVector)
+  private def dozen(i: Int, n: Int) = i * 12 + 1 to i * 12 + 12 map (t => st(t * 10, n * 10)) toList
 
-  "Streams.scanForAlerts" should "raise and drop alerts at the right time" in {
-    assert(Stream(dozen(0, 5) ::: dozen(1, 15) ::: dozen(2, 20) ::: dozen(3, 10): _*)
-      .through(Streams.scanForAlerts(10))             // alert level is 1200 hits per 2 minutes
-      .toList == List(
-        Normal(Instant ofEpochSecond 120, 600, 10),   // 12 * 5 = 60 < 120 ok
-        Busy(Instant ofEpochSecond 190, 1300, 10),    // 6 * 5 + 6 * 15 = 120 ok; 5 * 5 + 7 * 15 = 130 > 120 alert
-        Normal(Instant ofEpochSecond 480, 1200, 10))) // 1 * 20 + 11 * 10 = 130 > 120 still not ok; 12 * 10 = 120 ok
-  }
+  private val calmStream = Stream(dozen(0, 10) ::: dozen(0, 10): _*)
+  private val alertingStream = Stream(dozen(0, 10) ::: dozen(1, 15) ::: dozen(2, 5): _*)
 
+  "Streams.scanForAlerts" should "not raise an alert when there is none" in
+    assert(calmStream.through(Streams scanForAlerts 10).toList.isEmpty)
+
+  val alerts = alertingStream.through(Streams scanForAlerts 10).toList
+
+  it should "raise an alert as soon as the 2-min average is above threshold" in
+    assert(alerts.head == Busy(Instant ofEpochSecond 130, 1250, 10)) // avg = 1250/120 > 10
+
+  it should "not raise any more alert until the first alert is recovered" in
+    assert(alerts.tail.headOption forall (_.isInstanceOf[Normal]))
+
+  it should "signal a recovery as soon as the 2-min average is again below or equal to the threshold" in
+    assert(alerts find (_.isInstanceOf[Normal]) contains Normal(Instant ofEpochSecond 300, 1200, 10)) // avg = 1200/120 = 10
 
 }
