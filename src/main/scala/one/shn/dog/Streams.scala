@@ -1,12 +1,12 @@
 package one.shn.dog
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 import java.time.Instant
 
 import cats.effect.{Concurrent, ContextShift, IO, Timer}
 import cats.implicits._
 import fs2.{Pipe, Pure, Stream}
-import one.shn.dog.domain.{Alert, Busy, Log, Normal, Stats}
+import one.shn.dog.domain.{Signal, Alert, Log, Recovery, Stats}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -68,19 +68,19 @@ object Streams {
 
   def scanForAlerts(
       threshold: Int)
-  : Pipe[Pure, Stats, Alert] = _
+  : Pipe[Pure, Stats, Signal] = _
     .sliding(12) // 2 min = 12 * 10 sec
     .map(stats => (stats map (_.count) sum, stats.last.timestamp))
     .map { case (count, timestamp) => (count > threshold * 120, count, timestamp) } // 2 min = 120 sec
     .filterWithPrevious(_._1 != _._1) // detect change in alert status
     .map {
-      case (true, count, timestamp)  => Busy(timestamp, count, threshold)
-      case (false, count, timestamp) => Normal(timestamp, count, threshold)
+      case (true, count, timestamp)  => Alert(timestamp, count, threshold)
+      case (false, count, timestamp) => Recovery(timestamp, count, threshold)
     }
     .zipWithIndex
     .mapFilter {
-      case (_: Normal, 0) => None
-      case (alert, _)     => Some(alert)
+      case (_: Recovery, 0) => None // blocks the first alert if it is a recovery
+      case (signal, _)      => Some(signal)
     }
 
 }

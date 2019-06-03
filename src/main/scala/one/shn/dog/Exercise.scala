@@ -26,7 +26,7 @@ object Exercise extends IOApp {
         .through(groupToStats)
         .evalTap(stats => IO(Display transient stats.message))
         .through(scanForAlerts(10))
-        .evalMap(alert => IO(Display permanent (alert.message, alert.color)))
+        .evalMap(signal => IO(Display permanent (signal.message, signal.color)))
     }
 
   override def run(args: List[String]): IO[ExitCode] =

@@ -3,7 +3,7 @@ package one.shn.dog
 import java.time.Instant
 
 import fs2.Stream
-import one.shn.dog.domain.{Busy, Log, Normal, Stats}
+import one.shn.dog.domain.{Alert, Log, Recovery, Stats}
 import org.scalatest.FlatSpec
 
 import scala.language.postfixOps
@@ -35,21 +35,21 @@ class StreamsSpec extends FlatSpec {
   private def st(t: Int, n: Int) = Stats(Instant ofEpochSecond t, 1 to n map (_ => lg(t - 1)) toVector)
   private def dozen(i: Int, n: Int) = i * 12 + 1 to i * 12 + 12 map (t => st(t * 10, n * 10)) toList
 
-  private val calmStream = Stream(dozen(0, 10) ::: dozen(0, 10): _*)
+  private val calmStream     = Stream(dozen(0, 10) ::: dozen(0, 10): _*)
   private val alertingStream = Stream(dozen(0, 10) ::: dozen(1, 15) ::: dozen(2, 5): _*)
 
   "Streams.scanForAlerts" should "not raise an alert when there is none" in
     assert(calmStream.through(Streams scanForAlerts 10).toList.isEmpty)
 
-  val alerts = alertingStream.through(Streams scanForAlerts 10).toList
+  val signals = alertingStream.through(Streams scanForAlerts 10).toList
 
   it should "raise an alert as soon as the 2-min average is above threshold" in
-    assert(alerts.head == Busy(Instant ofEpochSecond 130, 1250, 10)) // avg = 1250/120 > 10
+    assert(signals.head == Alert(Instant ofEpochSecond 130, 1250, 10)) // avg = 1250/120 > 10
 
   it should "not raise any more alert until the first alert is recovered" in
-    assert(alerts.tail.headOption forall (_.isInstanceOf[Normal]))
+    assert(signals.tail.headOption forall (_.isInstanceOf[Recovery]))
 
   it should "signal a recovery as soon as the 2-min average is again below or equal to the threshold" in
-    assert(alerts find (_.isInstanceOf[Normal]) contains Normal(Instant ofEpochSecond 300, 1200, 10)) // avg = 1200/120 = 10
+    assert(signals find (_.isInstanceOf[Recovery]) contains Recovery(Instant ofEpochSecond 300, 1200, 10)) // avg = 1200/120 = 10
 
 }

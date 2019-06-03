@@ -4,26 +4,26 @@ import java.time.Instant
 
 import scala.io.AnsiColor
 
-sealed trait Alert {
+sealed trait Signal {
   def color:   String
   def message: String
 }
 
-case class Busy(
+case class Alert(
     timestamp: Instant,
     hitCount:  Int,
     threshold: Int)
-  extends Alert {
+  extends Signal {
   val color: String = AnsiColor.RED
   override def message: String =
     s"$timestamp: High traffic generated an alert. $hitCount hits in 2 minutes triggered an alert at $timestamp."
 }
 
-case class Normal(
+case class Recovery(
     timestamp: Instant,
     hitCount:  Int,
     threshold: Int)
-  extends Alert {
+  extends Signal {
   val color: String = AnsiColor.GREEN
   override def message: String =
     s"$timestamp: Traffic is normal now. $hitCount hits in past two minutes."
