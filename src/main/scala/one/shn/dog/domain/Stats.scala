@@ -2,6 +2,8 @@ package one.shn.dog.domain
 
 import java.time.Instant
 
+import one.shn.dog.config
+
 import scala.language.postfixOps
 
 case class Stats(timestamp: Instant, logs: Vector[Log]) {
@@ -15,10 +17,10 @@ case class Stats(timestamp: Instant, logs: Vector[Log]) {
   def message: String =
     if (logs.isEmpty) s"$timestamp: No hits."
     else popSections match {
-      case head :: Nil =>
-        s"$timestamp: $count hits. Most popular section $head with ${100 * maxHits / count}%."
-      case head :: tail =>
-        s"$timestamp: $count hits. Most popular sections ${tail mkString ", "} and $head with ${100 * maxHits / count}% each."
+      case head :: Nil => // singular
+        s"${config.fmt format timestamp} $count hits. Most popular section $head with ${100 * maxHits / count}%."
+      case head :: tail => // plural with "and" in the end!
+        s"${config.fmt format timestamp} $count hits. Most popular sections ${tail mkString ", "} and $head with ${100 * maxHits / count}% each."
     }
 
 }

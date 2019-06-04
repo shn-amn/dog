@@ -2,6 +2,8 @@ package one.shn.dog.domain
 
 import java.time.Instant
 
+import one.shn.dog.config
+
 import scala.io.AnsiColor
 
 sealed trait Signal {
@@ -16,7 +18,7 @@ case class Alert(
   extends Signal {
   val color: String = AnsiColor.RED
   override def message: String =
-    s"$timestamp: High traffic generated an alert. $hitCount hits in 2 minutes triggered an alert at $timestamp."
+    s"${config.fmt format timestamp} High traffic alert! $hitCount hits in past 2 minutes."
 }
 
 case class Recovery(
@@ -26,5 +28,5 @@ case class Recovery(
   extends Signal {
   val color: String = AnsiColor.GREEN
   override def message: String =
-    s"$timestamp: Traffic is normal now. $hitCount hits in past two minutes."
+    s"${config.fmt format timestamp} Back to normal traffic. $hitCount hits in past 2 minutes."
 }
