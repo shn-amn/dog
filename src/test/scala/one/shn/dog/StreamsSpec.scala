@@ -41,7 +41,7 @@ class StreamsSpec extends FlatSpec {
   "Streams.scanForAlerts" should "not raise an alert when there is none" in
     assert(calmStream.through(Streams scanForAlerts 10).toList.isEmpty)
 
-  val signals = alertingStream.through(Streams scanForAlerts 10).toList
+  private val signals = alertingStream through (Streams scanForAlerts 10) toList
 
   it should "raise an alert as soon as the 2-min average is above threshold" in
     assert(signals.head == Alert(Instant ofEpochSecond 130, 1250, 10)) // avg = 1250/120 > 10
