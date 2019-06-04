@@ -14,7 +14,7 @@ class StreamsSpec extends FlatSpec {
   private def rl(t: Int) = Right(lg(t))
   private def li(t: Int) = Left(Instant ofEpochSecond t)
 
-  "Streams.groupToStats" should "properly group a mix of logs and timestamps to 10-second stats" in
+  "Stats aggregation" should "properly group a mix of logs and timestamps to 10-second stats" in
     assert(Stream(
       rl(5), li(5), li(6), rl(7), li(7), li(8), li(9),
       li(10), rl(10), rl(10), rl(11), rl(12), rl(12), rl(12), li(13), li(14), li(15), li(16), li(17), li(18), li(19),
@@ -32,13 +32,15 @@ class StreamsSpec extends FlatSpec {
           timestamp = Instant ofEpochSecond 40,
           logs      = Vector())))
 
+  // The following is the REQUIRED TEST FOR THE ALERTING LOGIC
+
   private def st(t: Int, n: Int) = Stats(Instant ofEpochSecond t, 1 to n map (_ => lg(t - 1)) toVector)
   private def dozen(i: Int, n: Int) = i * 12 + 1 to i * 12 + 12 map (t => st(t * 10, n * 10)) toList
 
   private val calmStream     = Stream(dozen(0, 10) ::: dozen(0, 10): _*)
   private val alertingStream = Stream(dozen(0, 10) ::: dozen(1, 15) ::: dozen(2, 5): _*)
 
-  "Streams.scanForAlerts" should "not raise an alert when there is none" in
+  "Alerting logic" should "not raise an alert when there is none" in
     assert(calmStream.through(Streams scanForAlerts 10).toList.isEmpty)
 
   private val signals = alertingStream through (Streams scanForAlerts 10) toList
@@ -46,7 +48,7 @@ class StreamsSpec extends FlatSpec {
   it should "raise an alert as soon as the 2-min average is above threshold" in
     assert(signals.head == Alert(Instant ofEpochSecond 130, 1250, 10)) // avg = 1250/120 > 10
 
-  it should "not raise any more alert until the first alert is recovered" in
+  it should "not raise any more alerts until the first alert is recovered" in
     assert(signals.tail.headOption forall (_.isInstanceOf[Recovery]))
 
   it should "signal a recovery as soon as the 2-min average is again below or equal to the threshold" in

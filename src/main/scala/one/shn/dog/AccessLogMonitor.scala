@@ -14,22 +14,24 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-object Exercise extends IOApp {
+object AccessLogMonitor extends IOApp {
+
+  import config._
 
   val blockingExecutionContext: Resource[IO, ExecutionContextExecutorService] =
     (Resource make IO(ExecutionContext fromExecutorService (Executors newFixedThreadPool 1)))(ec => IO(ec shutdown ()))
 
-  def job(since: Instant, threshold: Int): Stream[IO, Unit] =
+  def job(start: Instant): Stream[IO, Unit] =
     Stream resource blockingExecutionContext flatMap { blockingEC =>
-      logsSince(Paths get "/tmp/access.log", since, blockingEC)
+      parseLogs(path = logfile, since = start, blockingEC)
         .through(addHeartbeat(lag = 500 millis))
         .through(groupToStats)
         .evalTap(stats => IO(Display transient stats.message))
-        .through(scanForAlerts(10))
+        .through(scanForAlerts(threshold))
         .evalMap(signal => IO(Display permanent (signal.message, signal.color)))
     }
 
   override def run(args: List[String]): IO[ExitCode] =
-    IO(Instant.now) flatMap (start => job(start, 10).compile.drain) as ExitCode.Success
+    IO(Instant.now) flatMap (start => job(start).compile.drain) as ExitCode.Success
 
 }

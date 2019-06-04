@@ -14,7 +14,7 @@ import scala.language.postfixOps
 
 object Streams {
 
-  def logsSince(
+  def parseLogs(
       path:       Path,
       since:      Instant,
       blockingEC: ExecutionContext)(
