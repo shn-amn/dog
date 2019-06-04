@@ -8,6 +8,12 @@ We want to read an HTTP access log file in realtime, and
   emit an alert when it crosses a certain threshold,
   and emit a recovery alert when it comes under the threshold again.
 
+1. [Basic idea of the solution](#1)
+2. [Why it wouldn't work](#2)
+3. A better solution
+4. Input
+5. Output
+
 ## Why Scala and FS2?
 For the past couple of years, I have been programming mostly in Scala.
 However, during my phone screening, I did the code exercises in Go.
@@ -29,6 +35,7 @@ I thought it might give me the chance of doing some low-level IO programming --
 and it did.
 As will see below, I ended up writing code that I should contribute back to FS2 file pacakge. 
 
+<a name="1"></a>
 # 1  Basic idea of the solution
 Now back to the problem at hand.
 
@@ -61,15 +68,15 @@ but first let me admit that **this is an opinionated solution
 based on certain assumptions** about the input;
 most importantly that the input is ordered in time.
 
-> ## _Assumption #1: ordered input_
-> What I mean by the input being ordered is that
-  the logs that appear earlier in the file have an earlier timestamp.
->   
-> Given the nature of logs, this is a reasonable assumption.
-  Even if the logs were written concurrently, 
-  given the low resolution of timestamps (1 second),
-  there is very little chance that an _earlier_ log (by timestamp)
-  might be written _later_ than a log having a bigger timestamp. 
+### _Assumption: ordered input_
+What I mean by the input being ordered is that
+the logs that appear earlier in the file have an earlier timestamp.
+  
+Given the nature of logs, this is a reasonable assumption.
+Even if the logs were written concurrently, 
+given the low resolution of timestamps (1 second),
+there is very little chance that an _earlier_ log (by timestamp)
+might be written _later_ than a log having a bigger timestamp. 
 
 Assuming the logs are ordered, here is how the code works:
 
@@ -81,15 +88,26 @@ Assuming the logs are ordered, here is how the code works:
 The consecutive logs whose timestamps are in the same 10 second window
 are grouped together in chunks. 
 The `Stream[_, Log]` is transformed into a `Stream[_, (Long, Chunk[Log])]`.
+
+How does it work? 
+`_.timestamp.toEpochMilli` is the number of milliseconds from 
+1 Jan 1970 00:00:00 to the time stamped on the log.
+`_.timestamp.toEpochMilli / 10000` is therefore the number of 
+seconds from _Linux epoch_ to timestamp divided by 10.
+This value is the same for all timestamps between `__:__:_0` to `__:__:_9`
+on any given day, hour and minute.
+
 The element `(0L, Chunk(...))`, for example,
-contains all the logs dating on 1 Jan 1970 between midnight and 00:00:10.
+contains all the logs dating from 1 Jan 1970 between midnight and 00:00:10.
+The element `(155963740L, Chunk(...))`, 
+contains the logs written on 4 Jun 2019 between 9:36:40 am to 9:36:49.
 
 ```scala
 .map(_._2.toVector groupBy (_.section) mapValues (_.length))
 ```
 Then the `Long` value of the tuple is discarded, 
 and logs are grouped by sections, 
-each section corresponding to the number of hits it has received.
+to each section assigned the number of hits it has received.
 Now we have a `Stream[_, Map[String, Int]]` 
 that corresponds to the basic 10 sec statistics.
 
@@ -111,7 +129,7 @@ But that sounds like a waste...
 
 Couldn't we put these aggregated statistics to a use?
 
-### 1.2 Recycling statistics to generate alerts
+### 1.2 Recycling statistics to trigger alerts
 We could, of course, scan the stream of parsed logs directly to trigger alerts.
 But it so happens that 
 the 2 minute period for aggregating alerts is an exact multiple of 
@@ -174,7 +192,8 @@ We print out the alerts and recoveries, and we are done!
 
 Easy, wasn't it? Not so soon...
 
-## Why and when this doesn't work?
+<a name="2"><a/>
+# 2 Why it wouldn't work
 Have you noticed that we have not used any clocks or timers?
 Never! Not once! 
 Is it not strange for an apparently time-based application?
@@ -199,16 +218,34 @@ at least one hit every second or two.
 
 But what if the server is less busy...
 
-### Problem: sparse logs
+## _Problem: sparse logs_
 Lets see what happens when we are processing the following stream of logs:
 
 ```
-127.0.0.1 - john [09/May/2018:16:00:36 +0000] "GET /report HTTP/1.0" 200 123
-127.0.0.1 - jill [09/May/2018:16:00:37 +0000] "GET /api/user HTTP/1.0" 200 234
+127.0.0.1 - john [09/May/2018:16:00:21 +0000] "GET /report HTTP/1.0" 200 123
+127.0.0.1 - jill [09/May/2018:16:00:22 +0000] "GET /api/user HTTP/1.0" 200 234
 127.0.0.1 - brad [09/May/2018:16:00:37 +0000] "POST /api/user HTTP/1.0" 200 34
-127.0.0.1 - mary [09/May/2018:16:00:38 +0000] "POST /api/user HTTP/1.0" 503 12
 127.0.0.1 - mary [09/May/2018:16:00:51 +0000] "POST /api/user HTTP/1.0" 503 12
-...
+127.0.0.1 - jane [09/May/2018:16:00:56 +0000] "POST /api/user HTTP/1.0" 503 12
 ```
+
+The first two logs (John and Jill) are grouped together, the group of `16:00:2_`,
+the Brad makes the group of `16:00:3_` and Mary and Jane the group of `16:00:5_`.
+
+The group of `16:00:4_` is missing!
+
+This means that 
+- there will be no statistics for 16:00:40 to 16:00:49
+- the following alerts, which are based on these statistics, are messed up.
+
+On a more extreme case, on a day when the server receives no calls,
+there will be no logs, and _no statistics at all!_
+
+
+
+
+
+
+
 
 ### Edge problem: first alerts
