@@ -23,9 +23,8 @@ object Streams {
       timer:      Timer[IO])
   : Stream[IO, Log] =
     in.readLogLines(path, blockingEC)
-      .map(Log.parse)
-      .collect { case Some(log) => log }
-      .filter(_.timestamp isAfter since)
+      .mapFilter(Log.parse)
+      .dropWhile(_.timestamp isBefore since)
 
   def heartbeat(
       lag:   Duration)(

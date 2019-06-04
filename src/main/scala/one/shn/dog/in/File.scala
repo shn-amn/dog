@@ -17,8 +17,9 @@ import scala.language.{higherKinds, postfixOps}
 object File {
 
   /**
-    * Reads a file until the end and emits its content in `chunkSize` byte chunks.
-    * Then, waits for `delay` time, checks if anything is appended to it.
+    * Reads a file until the end and emits its content
+    * in byte chunks of @param `chunkSize`.
+    * Then, waits for @param `delay` time, checks if anything is appended to it.
     * Repeat.
     */
   def readIndefinitely[F[_]: Sync: ContextShift: Timer](
