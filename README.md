@@ -7,8 +7,26 @@ We want to read an HTTP access log file in realtime, and
 - in the meantime, keep track of the total number of hits in the past two minutes,
   emit an alert when it crosses a certain threshold,
   and emit a recovery alert when it comes under the threshold again.
+  
+## How to run it?
+First, there are three environment variable you may set:
+- `ACCESSMONITOR_LOG_PATH` is the path to logfile; defaults on `/tmp/access.log`.
+- `ACCESSMONITOR_ALERT_THRESHOLD` is the maximum average hits per second that 
+  is considered normal (not alerting). It should be a positive integer.
+- `ACCESSMONITOR_HEARTBEAT_LAG` is the [heartbeat lag](#lag) in milliseconds.
 
-### Contents
+Now, you can run the code with SBT's `sbt run` at the root of the project.
+And to run the tests you can run `sbt test`.
+
+If you also run `sbt docker:publishLocal`, a Dockerfile is created in
+`target/docker/stage`. You can then tweak the image 
+(add `touch /var/log/access.log` 
+and set the `ACCESSMONITOR_LOG_PATH` to point to it,
+for example) and re-build it.
+
+I have not really tested the Docker image, so I provide no guarantees!
+
+### Other contents
 1. [Basic idea of the solution](#1)
 2. [Why it wouldn't work](#2)
 3. [Refined solution](#3)
@@ -244,6 +262,7 @@ because the results still depend on the timestamps of actual logs.
 
 Now we have the best of two worlds!
 
+<a name="lag"></a>
 ### Caution
 There is still a little problem.
 Logs do take a little time to be written and a little time to read.
