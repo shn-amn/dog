@@ -1,14 +1,13 @@
 package one.shn.dog.domain
 
 import java.time.Instant
-
-import one.shn.dog.config
+import java.time.format.DateTimeFormatter
 
 import scala.io.AnsiColor
 
 sealed trait Signal {
-  def color:   String
-  def message: String
+  def color: String
+  def message(implicit fmt :DateTimeFormatter): String
 }
 
 case class Alert(
@@ -17,8 +16,8 @@ case class Alert(
     threshold: Int)
   extends Signal {
   val color: String = AnsiColor.RED
-  override def message: String =
-    s"${config.fmt format timestamp} High traffic alert! $hitCount hits in past 2 minutes."
+  override def message(implicit fmt: DateTimeFormatter): String =
+    s"${fmt format timestamp} High traffic alert! $hitCount hits in past 2 minutes."
 }
 
 case class Recovery(
@@ -27,6 +26,6 @@ case class Recovery(
     threshold: Int)
   extends Signal {
   val color: String = AnsiColor.GREEN
-  override def message: String =
-    s"${config.fmt format timestamp} Back to normal traffic. $hitCount hits in past 2 minutes."
+  override def message(implicit fmt: DateTimeFormatter): String =
+    s"${fmt format timestamp} Back to normal traffic. $hitCount hits in past 2 minutes."
 }
