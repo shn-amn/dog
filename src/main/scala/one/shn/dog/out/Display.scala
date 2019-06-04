@@ -11,7 +11,7 @@ object Display extends AnsiColor {
     def color:   String
   }
   case class Transient(message: String, color: String) extends Line
-  case class Permanent(message: String, color: String)   extends Line
+  case class Permanent(message: String, color: String) extends Line
 
   private val transientBuffer:   Queue[Line] = Queue.empty
   private val maxTransientLines: Int         = 10
@@ -20,17 +20,17 @@ object Display extends AnsiColor {
       message: String,
       color:   String = AnsiColor.WHITE)
   : Unit =
-    newLine(Transient(message, color))
+    transientBuffer synchronized newLine(Transient(message, color))
 
   def permanent(
       message: String,
       color:   String = AnsiColor.RED)
   : Unit =
-    newLine(Permanent(message, color))
+    transientBuffer synchronized newLine(Permanent(message, color))
 
   def close(
       message: String = "")
-  : Unit = {
+  : Unit = transientBuffer synchronized {
     refreshAndTrimTransientBufferTo(0, animation = true)
     println(message)
   }
@@ -41,7 +41,9 @@ object Display extends AnsiColor {
     printLine(line)
   }
 
-  private def refreshAndTrimTransientBufferTo(n: Int, animation: Boolean = false): Unit =
+  private def refreshAndTrimTransientBufferTo(
+      n:         Int,
+      animation: Boolean = false): Unit =
     if (transientBuffer.length > n) {
       eraseTransientLines
       transientBuffer.dequeue match {
