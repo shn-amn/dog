@@ -24,7 +24,7 @@ object AccessLogMonitor extends IOApp {
   def job(start: Instant): Stream[IO, Unit] =
     Stream resource blockingExecutionContext flatMap { blockingEC =>
       parseLogs(path = logfile, since = start, blockingEC)
-        .through(addHeartbeat(lag = 500 millis))
+        .through(addHeartbeat(lag = heartbeatLag millis))
         .through(groupToStats)
         .evalTap(stats => IO(Display transient stats.message))
         .through(scanForAlerts(threshold))
