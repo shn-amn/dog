@@ -26,7 +26,10 @@ for example) and re-build it.
 
 I have not really tested the Docker image, so I provide no guarantees!
 
-### Other contents
+## Other contents
+Below, I explain how I came up with the current design,
+and how every part of the programme works works. TL;DR!
+
 1. [Basic idea of the solution](#1)
 2. [Why it wouldn't work](#2)
 3. [Refined solution](#3)
