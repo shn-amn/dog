@@ -52,8 +52,7 @@ object File {
       case Some(bytes) =>
         (Pull output bytes) >> readFromFileHandle(chunkSize, offset + bytes.size, delay)(handle)
       case None =>
-        F sleep delay
-        readFromFileHandle(chunkSize, offset, delay)(handle)
+        (Pull eval (F sleep delay)) >> readFromFileHandle(chunkSize, offset, delay)(handle)
     }
 
 }
